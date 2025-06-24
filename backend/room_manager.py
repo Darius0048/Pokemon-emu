@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import asyncio
 import logging
-from models import Room, Player, PlayerStatus, LinkCableMessage, LinkCableAction
+from .models import Room, Player, PlayerStatus, LinkCableMessage, LinkCableAction
 
 logger = logging.getLogger(__name__)
 
