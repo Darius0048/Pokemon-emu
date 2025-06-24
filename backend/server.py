@@ -13,12 +13,12 @@ from datetime import datetime
 import json
 
 # Import our new modules
-from models import (
+from .models import (
     CreateRoomRequest, CreateRoomResponse, JoinRoomRequest, JoinRoomResponse,
     RoomListResponse, WebSocketMessage, Room, Player, PlayerStatus
 )
-from room_manager import room_manager
-from websocket_handler import websocket_manager
+from .room_manager import room_manager
+from .websocket_handler import websocket_manager
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
