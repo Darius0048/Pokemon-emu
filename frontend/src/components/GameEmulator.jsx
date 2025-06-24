@@ -2,54 +2,101 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Gamepad2, Users, Settings, Volume2, VolumeX } from 'lucide-react';
+import { Gamepad2, Users, Settings, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { useGame } from '../contexts/GameContext';
 
-const GameEmulator = ({ romFile, isHost, roomId, connectedPlayers }) => {
+const GameEmulator = () => {
   const canvasRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [gameState, setGameState] = useState('loading');
-  const [linkCableStatus, setLinkCableStatus] = useState('disconnected');
+  
+  const {
+    romFile,
+    currentRoom,
+    connectedPlayers,
+    isHost,
+    linkCableConnected,
+    gameState,
+    setGameState,
+    sendLinkCableData,
+    saveGameState,
+    loadGameState,
+  } = useGame();
 
   useEffect(() => {
     if (romFile && canvasRef.current) {
-      // Mock emulator initialization
-      setTimeout(() => {
-        setGameState('ready');
-        if (connectedPlayers.length > 1) {
-          setLinkCableStatus('connected');
-        }
-      }, 2000);
+      // Initialize emulator when ROM is loaded
+      initializeEmulator();
     }
-  }, [romFile, connectedPlayers]);
+  }, [romFile]);
+
+  const initializeEmulator = () => {
+    // This would initialize the actual GBA emulator
+    // For now, we'll set up mock emulator behavior
+    setGameState('ready');
+    
+    // Set up global emulator object for link cable communication
+    window.emulator = {
+      receiveLinkCableData: (action, payload) => {
+        console.log('Emulator received link cable data:', action, payload);
+        // Handle incoming link cable data
+      },
+      
+      sendLinkCableData: (action, payload) => {
+        console.log('Emulator sending link cable data:', action, payload);
+        sendLinkCableData(action, payload);
+      },
+      
+      loadSaveData: (saveData) => {
+        console.log('Loading save data:', saveData);
+        // Load save data into emulator
+      },
+      
+      getSaveData: () => {
+        console.log('Getting save data from emulator');
+        // Return current save data
+        return 'mock_save_data';
+      },
+    };
+  };
 
   const handlePlay = () => {
-    setIsPlaying(!isPlaying);
-    setGameState(isPlaying ? 'paused' : 'playing');
+    const newState = gameState === 'playing' ? 'paused' : 'playing';
+    setGameState(newState);
   };
 
   const handleReset = () => {
-    setIsPlaying(false);
     setGameState('ready');
-    setLinkCableStatus(connectedPlayers.length > 1 ? 'connected' : 'disconnected');
   };
 
   const handleSaveState = () => {
-    // Mock save state functionality
-    console.log('Save state created');
+    if (window.emulator?.getSaveData) {
+      const saveData = window.emulator.getSaveData();
+      saveGameState(saveData);
+    }
   };
 
   const handleLoadState = () => {
-    // Mock load state functionality
-    console.log('Save state loaded');
+    loadGameState();
   };
 
   const renderGameScreen = () => {
+    if (!romFile) {
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-900 text-white">
+          <div className="text-center">
+            <Gamepad2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-semibold mb-2">No ROM Loaded</p>
+            <p className="text-sm opacity-75">Upload a ROM file to start playing</p>
+          </div>
+        </div>
+      );
+    }
+
     if (gameState === 'loading') {
       return (
         <div className="flex items-center justify-center h-full bg-gray-900 text-white">
           <div className="text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
             <p>Loading ROM...</p>
           </div>
         </div>
@@ -65,7 +112,7 @@ const GameEmulator = ({ romFile, isHost, roomId, connectedPlayers }) => {
               {gameState === 'ready' ? 'Ready to Play!' : 'Game Paused'}
             </p>
             <p className="text-sm opacity-75">
-              {romFile ? `ROM: ${romFile.name}` : 'No ROM loaded'}
+              ROM: {romFile.name}
             </p>
           </div>
         </div>
@@ -81,9 +128,11 @@ const GameEmulator = ({ romFile, isHost, roomId, connectedPlayers }) => {
             <div className="w-32 h-32 bg-yellow-400 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
               <div className="w-16 h-16 bg-yellow-600 rounded-full"></div>
             </div>
-            <p className="text-2xl font-bold mb-2">Pokémon Fire Red</p>
+            <p className="text-2xl font-bold mb-2">
+              {romFile.name.includes('Fire') ? 'Pokémon Fire Red' : 'Pokémon Leaf Green'}
+            </p>
             <p className="text-sm opacity-90">Game is running...</p>
-            {linkCableStatus === 'connected' && (
+            {linkCableConnected && (
               <Badge className="mt-2 bg-green-500 hover:bg-green-600">
                 <Users className="w-3 h-3 mr-1" />
                 Link Cable Connected
@@ -104,13 +153,13 @@ const GameEmulator = ({ romFile, isHost, roomId, connectedPlayers }) => {
             Game Boy Advance Emulator
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant={linkCableStatus === 'connected' ? 'default' : 'secondary'}>
+            <Badge variant={linkCableConnected ? 'default' : 'secondary'}>
               <Users className="w-3 h-3 mr-1" />
-              {linkCableStatus === 'connected' ? 'Link Cable On' : 'Single Player'}
+              {linkCableConnected ? 'Link Cable On' : 'Single Player'}
             </Badge>
-            {roomId && (
+            {currentRoom && (
               <Badge variant="outline">
-                Room: {roomId}
+                Room: {currentRoom}
               </Badge>
             )}
           </div>
@@ -138,26 +187,26 @@ const GameEmulator = ({ romFile, isHost, roomId, connectedPlayers }) => {
             disabled={!romFile || gameState === 'loading'}
             className="bg-green-600 hover:bg-green-700"
           >
-            {isPlaying ? 'Pause' : 'Play'}
+            {gameState === 'playing' ? 'Pause' : 'Play'}
           </Button>
           <Button
             onClick={handleReset}
             variant="outline"
-            disabled={gameState === 'loading'}
+            disabled={gameState === 'loading' || !romFile}
           >
             Reset
           </Button>
           <Button
             onClick={handleSaveState}
             variant="outline"
-            disabled={gameState === 'loading' || !isPlaying}
+            disabled={gameState === 'loading' || gameState !== 'playing'}
           >
             Save State
           </Button>
           <Button
             onClick={handleLoadState}
             variant="outline"
-            disabled={gameState === 'loading'}
+            disabled={gameState === 'loading' || !romFile}
           >
             Load State
           </Button>
@@ -175,9 +224,14 @@ const GameEmulator = ({ romFile, isHost, roomId, connectedPlayers }) => {
           <p className="mb-1">
             <strong>Controls:</strong> Arrow Keys (D-Pad) • Z (A) • X (B) • A (L) • S (R) • Enter (Start) • Shift (Select)
           </p>
-          {linkCableStatus === 'connected' && (
+          {linkCableConnected && (
             <p className="text-green-600 font-medium">
               Link cable active! You can now trade and battle with other players.
+            </p>
+          )}
+          {connectedPlayers.length > 0 && (
+            <p className="text-blue-600 font-medium mt-1">
+              Connected players: {connectedPlayers.map(p => p.name).join(', ')}
             </p>
           )}
         </div>
