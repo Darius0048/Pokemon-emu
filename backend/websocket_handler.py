@@ -2,8 +2,8 @@ import json
 import logging
 from typing import Dict, Any
 from fastapi import WebSocket, WebSocketDisconnect
-from .models import WebSocketMessage, LinkCableMessage, LinkCableAction, PlayerStatus
-from .room_manager import room_manager
+from models import WebSocketMessage, LinkCableMessage, LinkCableAction, PlayerStatus
+from room_manager import room_manager
 
 logger = logging.getLogger(__name__)
 
