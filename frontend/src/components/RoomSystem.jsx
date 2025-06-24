@@ -1,91 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Users, Plus, LogIn, Copy, Check, UserCheck, Crown } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
-import { mockRooms } from '../mock/mockData';
+import { Users, Plus, LogIn, Copy, Check, UserCheck, Crown, Loader2 } from 'lucide-react';
+import { useGame } from '../contexts/GameContext';
 
-const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
+const RoomSystem = () => {
   const [roomId, setRoomId] = useState('');
+  const [playerName, setPlayerName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const [showRoomList, setShowRoomList] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState([]);
   const [copied, setCopied] = useState(false);
-  const { toast } = useToast();
 
-  const generateRoomId = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  const {
+    currentRoom,
+    connectedPlayers,
+    isHost,
+    isLoading,
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    getAvailableRooms,
+  } = useGame();
+
+  // Load available rooms when dialog opens
+  useEffect(() => {
+    if (showRoomList) {
+      loadAvailableRooms();
+    }
+  }, [showRoomList]);
+
+  const loadAvailableRooms = async () => {
+    try {
+      const rooms = await getAvailableRooms();
+      setAvailableRooms(rooms);
+    } catch (error) {
+      console.error('Error loading rooms:', error);
+    }
   };
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
+    if (!playerName.trim()) {
+      return;
+    }
+
     setIsCreating(true);
-    const newRoomId = generateRoomId();
-    
-    setTimeout(() => {
-      onJoinRoom(newRoomId, true);
+    try {
+      await createRoom(playerName.trim());
+    } catch (error) {
+      // Error handling is done in the context
+    } finally {
       setIsCreating(false);
-      toast({
-        title: "Room Created!",
-        description: `Room ${newRoomId} has been created. Share the room ID with your friend.`,
-      });
-    }, 1000);
+    }
   };
 
-  const handleJoinRoom = () => {
-    if (!roomId.trim()) {
-      toast({
-        title: "Invalid Room ID",
-        description: "Please enter a valid room ID.",
-        variant: "destructive",
-      });
+  const handleJoinRoom = async () => {
+    if (!roomId.trim() || !playerName.trim()) {
       return;
     }
 
-    // Mock room validation
-    const room = mockRooms.find(r => r.id.toLowerCase() === roomId.toLowerCase());
-    if (!room) {
-      toast({
-        title: "Room Not Found",
-        description: "The room ID you entered doesn't exist or is no longer active.",
-        variant: "destructive",
-      });
-      return;
+    setIsJoining(true);
+    try {
+      await joinRoom(roomId.trim().toUpperCase(), playerName.trim());
+    } catch (error) {
+      // Error handling is done in the context
+    } finally {
+      setIsJoining(false);
     }
-
-    if (room.players.length >= 2) {
-      toast({
-        title: "Room Full",
-        description: "This room already has 2 players. Please try another room.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    onJoinRoom(roomId.toUpperCase(), false);
-    toast({
-      title: "Joined Room!",
-      description: `Successfully joined room ${roomId.toUpperCase()}`,
-    });
   };
 
   const handleCopyRoomId = () => {
     navigator.clipboard.writeText(currentRoom);
     setCopied(true);
-    toast({
-      title: "Room ID Copied!",
-      description: "Share this ID with your friend to let them join.",
-    });
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleLeaveRoom = () => {
-    onJoinRoom(null, false);
-    toast({
-      title: "Left Room",
-      description: "You have left the multiplayer room.",
-    });
+    leaveRoom();
   };
 
   if (currentRoom) {
@@ -123,10 +118,10 @@ const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
             </div>
             <div className="space-y-1">
               {connectedPlayers.map((player, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm">
+                <div key={player.id || index} className="flex items-center gap-2 text-sm">
                   <UserCheck className="w-4 h-4 text-green-500" />
                   <span>{player.name}</span>
-                  {player.isHost && <Crown className="w-3 h-3 text-yellow-500" />}
+                  {player.is_host && <Crown className="w-3 h-3 text-yellow-500" />}
                   <Badge variant="outline" className="ml-auto">
                     {player.status}
                   </Badge>
@@ -162,14 +157,34 @@ const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Player Name Input */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Your Name:</label>
+          <Input
+            placeholder="Enter your player name"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            maxLength={20}
+          />
+        </div>
+
         <div className="grid grid-cols-1 gap-3">
           <Button
             onClick={handleCreateRoom}
-            disabled={isCreating}
+            disabled={isCreating || isLoading || !playerName.trim()}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            {isCreating ? "Creating..." : "Create Room"}
+            {isCreating ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Room
+              </>
+            )}
           </Button>
 
           <div className="space-y-2">
@@ -181,8 +196,16 @@ const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
                 className="flex-1"
                 maxLength={6}
               />
-              <Button onClick={handleJoinRoom} variant="outline">
-                <LogIn className="w-4 h-4 mr-2" />
+              <Button 
+                onClick={handleJoinRoom} 
+                variant="outline"
+                disabled={isJoining || isLoading || !roomId.trim() || !playerName.trim()}
+              >
+                {isJoining ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <LogIn className="w-4 h-4 mr-2" />
+                )}
                 Join
               </Button>
             </div>
@@ -201,7 +224,7 @@ const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
                 <DialogTitle>Available Rooms</DialogTitle>
               </DialogHeader>
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {mockRooms.map((room) => (
+                {availableRooms.map((room) => (
                   <div
                     key={room.id}
                     className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted cursor-pointer"
@@ -213,7 +236,7 @@ const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
                     <div>
                       <div className="font-medium">{room.id}</div>
                       <div className="text-sm text-muted-foreground">
-                        Host: {room.host}
+                        Host: {room.players[0]?.name || 'Unknown'}
                       </div>
                     </div>
                     <Badge variant={room.players.length === 2 ? "secondary" : "default"}>
@@ -221,7 +244,7 @@ const RoomSystem = ({ onJoinRoom, currentRoom, connectedPlayers, isHost }) => {
                     </Badge>
                   </div>
                 ))}
-                {mockRooms.length === 0 && (
+                {availableRooms.length === 0 && (
                   <div className="text-center text-muted-foreground py-4">
                     No rooms available. Create one to get started!
                   </div>
