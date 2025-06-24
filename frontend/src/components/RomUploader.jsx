@@ -4,13 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Upload, File, X, CheckCircle, AlertTriangle } from 'lucide-react';
-import { useToast } from '../hooks/use-toast';
+import { useGame } from '../contexts/GameContext';
 
-const RomUploader = ({ onRomLoad, currentRom }) => {
+const RomUploader = () => {
   const fileInputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  const { toast } = useToast();
+  
+  const { romFile, loadRom, removeRom } = useGame();
 
   const validateRomFile = (file) => {
     // Check file extension
@@ -60,11 +61,6 @@ const RomUploader = ({ onRomLoad, currentRom }) => {
     const validation = validateRomFile(file);
     
     if (!validation.isValid) {
-      toast({
-        title: "Invalid ROM File",
-        description: validation.error,
-        variant: "destructive",
-      });
       setIsValidating(false);
       return;
     }
@@ -80,20 +76,11 @@ const RomUploader = ({ onRomLoad, currentRom }) => {
         uploadedAt: new Date().toISOString()
       };
       
-      onRomLoad(romData);
-      toast({
-        title: "ROM Loaded Successfully!",
-        description: `${file.name} is ready to play.`,
-      });
+      loadRom(romData);
       setIsValidating(false);
     };
     
     reader.onerror = () => {
-      toast({
-        title: "Failed to Load ROM",
-        description: "There was an error reading the file. Please try again.",
-        variant: "destructive",
-      });
       setIsValidating(false);
     };
     
@@ -128,11 +115,7 @@ const RomUploader = ({ onRomLoad, currentRom }) => {
   };
 
   const handleRemoveRom = () => {
-    onRomLoad(null);
-    toast({
-      title: "ROM Removed",
-      description: "The ROM file has been removed.",
-    });
+    removeRom();
   };
 
   const formatFileSize = (bytes) => {
@@ -149,15 +132,15 @@ const RomUploader = ({ onRomLoad, currentRom }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {currentRom ? (
+        {romFile ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-600" />
               <div className="flex-1">
-                <div className="font-medium text-green-900">{currentRom.name}</div>
+                <div className="font-medium text-green-900">{romFile.name}</div>
                 <div className="text-sm text-green-700">
-                  {formatFileSize(currentRom.size)}
-                  {currentRom.isPokemon && (
+                  {formatFileSize(romFile.size)}
+                  {romFile.isPokemon && (
                     <Badge className="ml-2 bg-blue-100 text-blue-800">
                       Pokémon ROM
                     </Badge>
